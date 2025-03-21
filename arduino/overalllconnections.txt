@@ -12,3 +12,7 @@ gnd nano to ldr gnd
 A1 nano to moist A0
 gnd nano to moist gnd
 5v nano to vv mosit
+gnd esp32 to gnd lcd
+3v3 nano to vv lcd
+a5 nano to scl lcd
+a4 nano to sda lcd
