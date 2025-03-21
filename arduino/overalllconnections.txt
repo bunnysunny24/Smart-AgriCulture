@@ -1,0 +1,5 @@
+A0 nano to A0 mq 135
+5v nano to vv mq135
+gnd nano to gnd mq135
+TX1 nano to d5 esp32
+gnd nano to gnd esp32
