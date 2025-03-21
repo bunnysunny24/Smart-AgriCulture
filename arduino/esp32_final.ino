@@ -66,7 +66,7 @@ void loop() {
     // Send to FastAPI (local or remote server)
     sendToFastAPI(mq135, light, temp, hum, soil);
 
-    delay(20000);  // Wait to meet ThingSpeak rate limit
+    delay(15000);  // Wait to meet ThingSpeak rate limit
   }
 }
 
