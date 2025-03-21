@@ -1,0 +1,3 @@
+ao to 34
+gnd to gnd
+vcc to any power
