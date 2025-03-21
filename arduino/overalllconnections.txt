@@ -9,3 +9,6 @@ gnd nano to - dht
 d3 nano tp ldr do
 gnd nano to ldr gnd
 5v nano to ldr vcc
+A1 nano to moist A0
+gnd nano to moist gnd
+5v nano to vv mosit
