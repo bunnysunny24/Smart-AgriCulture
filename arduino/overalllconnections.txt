@@ -16,3 +16,5 @@ gnd esp32 to gnd lcd
 3v3 nano to vv lcd
 a5 nano to scl lcd
 a4 nano to sda lcd
+d11 nano to + buzzer
+gnd nano to - buzzer
