@@ -1,4 +1,5 @@
 import PlantMonitoringDashboard from './components/PlantMonitoringDashboard';
+import React from "react";
 
 function App() {
   return (
