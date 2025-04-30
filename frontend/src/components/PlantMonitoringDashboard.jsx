@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Sun, 
   Moon, 
@@ -7,7 +7,10 @@ import {
   Droplets, 
   Wind, 
   AlertTriangle,
-  BarChart2
+  BarChart2,
+  RefreshCw,
+  Calendar,
+  Heart
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -19,7 +22,8 @@ const generateRandomReading = () => {
     light: Math.random() > 0.5 ? 1 : 0, // 1=Dark, 0=Bright
     temperature: parseFloat((Math.random() * 10 + 18).toFixed(1)),
     humidity: parseFloat((Math.random() * 20 + 60).toFixed(1)),
-    soilMoisture: Math.floor(Math.random() * 400 + 800)
+    soilMoisture: Math.floor(Math.random() * 400 + 800),
+    plantHealth: Math.floor(Math.random() * 30) + 70 // New plant health index (0-100)
   };
 };
 
@@ -38,7 +42,8 @@ const generateInitialData = (count = 10) => {
       light: Math.random() > 0.5 ? 1 : 0,
       temperature: parseFloat((Math.random() * 10 + 18).toFixed(1)),
       humidity: parseFloat((Math.random() * 20 + 60).toFixed(1)),
-      soilMoisture: Math.floor(Math.random() * 400 + 800)
+      soilMoisture: Math.floor(Math.random() * 400 + 800),
+      plantHealth: Math.floor(Math.random() * 30) + 70
     });
   }
   
@@ -50,7 +55,8 @@ const thresholds = {
   airQuality: { min: 0, max: 50, warning: 40, unit: "ppm" },
   temperature: { min: 18, max: 30, warning: 28, unit: "°C" },
   humidity: { min: 40, max: 80, warning: 75, unit: "%" },
-  soilMoisture: { min: 800, max: 1200, warning: 900, unit: "" }
+  soilMoisture: { min: 800, max: 1200, warning: 900, unit: "" },
+  plantHealth: { min: 70, max: 100, warning: 75, unit: "%" }
 };
 
 // Generate feedback based on current readings
@@ -90,6 +96,11 @@ const generateFeedback = (latestReading) => {
     feedback.push("Soil moisture is high. Avoid watering until soil dries a bit.");
   }
   
+  // Plant health feedback
+  if (latestReading.plantHealth < thresholds.plantHealth.warning) {
+    feedback.push("Plant health index is declining. Check all environmental factors.");
+  }
+  
   return feedback.length > 0 ? feedback : ["All parameters look good!"];
 };
 
@@ -105,33 +116,125 @@ export default function PlantMonitoringDashboard() {
   const [data, setData] = useState(generateInitialData());
   const [selectedMetric, setSelectedMetric] = useState('temperature');
   const [feedback, setFeedback] = useState([]);
+  const [refreshRate, setRefreshRate] = useState(3000);
+  const [isRunning, setIsRunning] = useState(true);
+  const [lastWatered, setLastWatered] = useState(new Date().toISOString().split('T')[0]);
   
-  // Simulate getting new data every 3 seconds
+  // Calculate overall plant health status
+  const healthStatus = useMemo(() => {
+    if (!data.length) return { status: "Unknown", color: "text-gray-500" };
+    
+    const latestReading = data[data.length - 1];
+    const health = latestReading.plantHealth;
+    
+    if (health >= 90) return { status: "Excellent", color: "text-green-600" };
+    if (health >= 80) return { status: "Good", color: "text-green-500" };
+    if (health >= 70) return { status: "Fair", color: "text-yellow-500" };
+    return { status: "Poor", color: "text-red-500" };
+  }, [data]);
+  
+  // Water the plant function
+  const waterPlant = () => {
+    setData(prevData => {
+      const newData = [...prevData];
+      if (newData.length > 0) {
+        const latestReading = {...newData[newData.length - 1]};
+        latestReading.soilMoisture = Math.min(1200, latestReading.soilMoisture + 200);
+        newData[newData.length - 1] = latestReading;
+      }
+      return newData;
+    });
+    setLastWatered(new Date().toISOString().split('T')[0]);
+    setFeedback(["Plant has been watered. Soil moisture increased."]);
+  };
+  
+  // Toggle data simulation
+  const toggleSimulation = () => {
+    setIsRunning(prev => !prev);
+  };
+  
+  // Simulate getting new data at the specified interval
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newReading = generateRandomReading();
-      setData(prevData => {
-        const newData = [...prevData, newReading];
-        // Keep only the last 20 readings
-        if (newData.length > 20) {
-          return newData.slice(newData.length - 20);
-        }
-        return newData;
-      });
-      setFeedback(generateFeedback(newReading));
-    }, 3000);
+    let interval;
+    
+    if (isRunning) {
+      interval = setInterval(() => {
+        const newReading = generateRandomReading();
+        setData(prevData => {
+          const newData = [...prevData, newReading];
+          // Keep only the last 20 readings
+          if (newData.length > 20) {
+            return newData.slice(newData.length - 20);
+          }
+          return newData;
+        });
+        setFeedback(generateFeedback(newReading));
+      }, refreshRate);
+    }
     
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshRate, isRunning]);
   
-  const latestReading = data[data.length - 1];
+  const latestReading = data[data.length - 1] || {};
   
   return (
     <div className="flex flex-col h-screen bg-gray-100 p-4">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Plant Monitoring Dashboard</h1>
-        <p className="text-gray-500">Real-time sensor data visualization</p>
+      <header className="mb-4 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Plant Monitoring Dashboard</h1>
+          <p className="text-gray-500">Real-time sensor data visualization</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={toggleSimulation}
+            className={`flex items-center px-3 py-2 rounded-lg ${isRunning ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}
+          >
+            <RefreshCw size={16} className="mr-2" />
+            {isRunning ? 'Pause Simulation' : 'Start Simulation'}
+          </button>
+          <select 
+            value={refreshRate} 
+            onChange={(e) => setRefreshRate(Number(e.target.value))}
+            className="bg-white border border-gray-300 rounded-lg px-3 py-2"
+          >
+            <option value={1000}>Refresh: 1s</option>
+            <option value={3000}>Refresh: 3s</option>
+            <option value={5000}>Refresh: 5s</option>
+            <option value={10000}>Refresh: 10s</option>
+          </select>
+        </div>
       </header>
+      
+      {/* Overall Health Status */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="p-3 rounded-full bg-green-100 mr-4">
+            <Heart size={24} className={healthStatus.color} />
+          </div>
+          <div>
+            <p className="text-gray-500">Overall Plant Health</p>
+            <p className={`text-2xl font-bold ${healthStatus.color}`}>
+              {healthStatus.status} - {latestReading?.plantHealth || 0}%
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center">
+          <div className="mr-4">
+            <p className="text-gray-500">Last Watered</p>
+            <div className="flex items-center">
+              <Calendar size={16} className="text-blue-500 mr-2" />
+              <p className="font-semibold">{lastWatered}</p>
+            </div>
+          </div>
+          <button 
+            onClick={waterPlant}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <CloudRain size={16} className="mr-2" />
+            Water Plant
+          </button>
+        </div>
+      </div>
       
       {/* Current Readings */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -143,7 +246,7 @@ export default function PlantMonitoringDashboard() {
             <div>
               <p className="text-gray-500">Air Quality</p>
               <p className={`text-xl font-bold ${getStatusColor(latestReading?.airQuality, 'airQuality')}`}>
-                {latestReading?.airQuality.toFixed(1)} {thresholds.airQuality.unit}
+                {latestReading?.airQuality?.toFixed(1) || "N/A"} {thresholds.airQuality.unit}
               </p>
             </div>
           </div>
@@ -181,7 +284,7 @@ export default function PlantMonitoringDashboard() {
             <div>
               <p className="text-gray-500">Temperature</p>
               <p className={`text-xl font-bold ${getStatusColor(latestReading?.temperature, 'temperature')}`}>
-                {latestReading?.temperature.toFixed(1)} {thresholds.temperature.unit}
+                {latestReading?.temperature?.toFixed(1) || "N/A"} {thresholds.temperature.unit}
               </p>
             </div>
           </div>
@@ -198,7 +301,7 @@ export default function PlantMonitoringDashboard() {
             <div>
               <p className="text-gray-500">Humidity</p>
               <p className={`text-xl font-bold ${getStatusColor(latestReading?.humidity, 'humidity')}`}>
-                {latestReading?.humidity.toFixed(1)} {thresholds.humidity.unit}
+                {latestReading?.humidity?.toFixed(1) || "N/A"} {thresholds.humidity.unit}
               </p>
             </div>
           </div>
@@ -215,7 +318,7 @@ export default function PlantMonitoringDashboard() {
             <div>
               <p className="text-gray-500">Soil Moisture</p>
               <p className={`text-xl font-bold ${getStatusColor(latestReading?.soilMoisture, 'soilMoisture')}`}>
-                {latestReading?.soilMoisture}
+                {latestReading?.soilMoisture || "N/A"}
               </p>
             </div>
           </div>
@@ -232,12 +335,12 @@ export default function PlantMonitoringDashboard() {
             <div>
               <p className="text-gray-500">Latest Reading</p>
               <p className="text-xl font-bold text-gray-800">
-                {latestReading?.timestamp}
+                {latestReading?.timestamp || "N/A"}
               </p>
             </div>
           </div>
           <p className="text-sm text-gray-500">
-            Refreshing data every 3 seconds
+            Refreshing data every {refreshRate/1000} seconds
           </p>
         </div>
       </div>
@@ -252,7 +355,7 @@ export default function PlantMonitoringDashboard() {
           {feedback.map((item, index) => (
             <div 
               key={index} 
-              className={`p-2 rounded ${item.includes('good') ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}
+              className={`p-2 rounded ${item.includes('good') || item.includes('watered') ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}
             >
               {item}
             </div>
@@ -264,7 +367,7 @@ export default function PlantMonitoringDashboard() {
       <div className="flex-1 bg-white p-4 rounded-lg shadow">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Historical Data</h2>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <button 
               onClick={() => setSelectedMetric('temperature')}
               className={`px-3 py-1 rounded ${selectedMetric === 'temperature' ? 'bg-red-100 text-red-600' : 'bg-gray-100'}`}
@@ -288,6 +391,12 @@ export default function PlantMonitoringDashboard() {
               className={`px-3 py-1 rounded ${selectedMetric === 'soilMoisture' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100'}`}
             >
               Soil Moisture
+            </button>
+            <button 
+              onClick={() => setSelectedMetric('plantHealth')}
+              className={`px-3 py-1 rounded ${selectedMetric === 'plantHealth' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100'}`}
+            >
+              Plant Health
             </button>
           </div>
         </div>
@@ -317,7 +426,8 @@ export default function PlantMonitoringDashboard() {
                     temperature: '°C',
                     humidity: '%',
                     airQuality: 'ppm',
-                    soilMoisture: ''
+                    soilMoisture: '',
+                    plantHealth: '%'
                   }[name];
                   return [`${value} ${unit}`, name];
                 }}
@@ -330,7 +440,8 @@ export default function PlantMonitoringDashboard() {
                   selectedMetric === 'temperature' ? '#ef4444' :
                   selectedMetric === 'humidity' ? '#3b82f6' :
                   selectedMetric === 'airQuality' ? '#10b981' :
-                  '#f59e0b'
+                  selectedMetric === 'soilMoisture' ? '#f59e0b' :
+                  '#8b5cf6' // Plant Health (purple)
                 }
                 activeDot={{ r: 8 }}
                 strokeWidth={2}
