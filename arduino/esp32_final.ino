@@ -74,7 +74,7 @@ void loop() {
 void sendToFastAPI(int mq135, int light, float temp, float hum, int soil) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    String url = "http://192.168.34.176:8000/log-data?mq135=" + String(mq135) +
+    String url = "http://192.168.102.48:8000/log-data?mq135=" + String(mq135) +
              "&light=" + String(light) +
              "&temp=" + String(temp, 2) +
              "&hum=" + String(hum, 2) +
